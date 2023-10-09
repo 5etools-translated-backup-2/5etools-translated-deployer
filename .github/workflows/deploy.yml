@@ -1,0 +1,106 @@
+name: 5etranslated - Deploy GH Pages
+
+env:
+  DEPLOYMENT_MAIN_LANG: ${{ vars.DEPLOYMENT_LANGUAGE }}
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * *"
+
+concurrency:
+  group: "deploy-gh-page"
+  cancel-in-progress: true
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # environment:
+    #    name: github-pages
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: false
+
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - uses: actions/checkout@main
+        with:
+          repository: 5etoolstranslated/5etoolstranslated.github.io
+          ref: "translations"
+          fetch-depth: 1
+          # Currently a "bug" we will do it manually
+          # https://github.com/actions/checkout/issues/1471
+          #   fetch-tags: true
+
+      - name: cache buster
+        run: |
+          cd $GITHUB_WORKSPACE
+          git fetch --tags
+          VERSION=$(git tag -l --sort=-committerdate | head -n1)
+          bash ./.github/set-deployed-flag.sh "${VERSION}.$(date +%s)"
+
+      - name: Switch default lang if necessary
+        if: ${{env.DEPLOYMENT_LANGUAGE != 'en' && env.DEPLOYMENT_LANGUAGE !=''}}
+        continue-on-error: false
+        run: |
+          mv data data.en
+          mv data.${{ env.DEPLOYMENT_LANGUAGE }} data
+          sed -i -e "s/defaultContentLanguage: 'en'/defaultContentLanguage: '${{env.DEPLOYMENT_LANGUAGE}}'/g" js/utils.js
+          sed -i -e "s/{ name: 'English',  baseDir: 'data\//{ name: 'English',  baseDir: 'data.en\//g" js/utils.js
+          sed -i -e "s/data.${{env.DEPLOYMENT_LANGUAGE}}/data/g" js/utils.js
+
+      # - name: Point to images from repo
+      #   continue-on-error: false
+      #   run: |
+      #      sed -i -e 's/globalThis.DEPLOYED_IMG_ROOT = undefined/globalThis.DEPLOYED_IMG_ROOT = "https:\/\/raw.githubusercontent.com\/5etools-mirror-1\/5etools-mirror-1.github.io\/master\/"/' js/utils.js
+      #      rm -rf img
+
+      - name: Build Service Worker
+        run: |
+          npm i
+          npm run build:sw:prod
+          sed -i 's/sw.js//g' .gitignore
+          sed -i 's/sw-injector.js//g' .gitignore
+
+      - name: Clean unnecessary files for pages deploy
+        run: |
+          rm -rf translation
+          rm -rf node_modules
+          rm -rf data.*
+
+      - name: Setup Pages
+        uses: actions/configure-pages@master
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@master
+        with:
+          path: "."
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    # environment:
+    #   # name: github-pages
+    #   url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@master
+        with:
+          timeout: 600000 # Max 10 min
