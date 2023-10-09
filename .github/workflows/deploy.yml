@@ -1,7 +1,7 @@
 name: 5etranslated - Deploy GH Pages
 
 env:
-  DEPLOYMENT_MAIN_LANG: ${{ vars.DEPLOYMENT_LANGUAGE }}
+    DEPLOYMENT_LANGUAGE: ${{ vars.DEPLOYMENT_LANGUAGE }}
 
 on:
   workflow_dispatch:
