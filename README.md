@@ -12,3 +12,5 @@ First check if is not already done by myself or someone else.
    -  Add a variable `DEPLOYMENT_LANGUAGE` with the main lang wanted for the content site
 - In the repo Settins > Pages check that the source is Github Actions
 - Wait or run the deploy workflow
+
+The site is accessible et https://5etoolstranslated.github.io/$lang
