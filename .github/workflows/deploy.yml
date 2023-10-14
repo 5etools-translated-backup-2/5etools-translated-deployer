@@ -86,7 +86,6 @@ jobs:
           rm -rf data.*
           rm -rf docker
           rm -rf .git
-          rm geckodriver.log
 
       - name: Setup Pages
         uses: actions/configure-pages@master
