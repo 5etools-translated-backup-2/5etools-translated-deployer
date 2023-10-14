@@ -86,6 +86,7 @@ jobs:
           rm -rf data.*
           rm -rf docker
           rm -rf .git
+          rm SVGs.zip
 
       - name: Setup Pages
         uses: actions/configure-pages@master
