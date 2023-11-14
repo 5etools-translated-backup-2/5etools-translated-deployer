@@ -1,7 +1,8 @@
 name: 5etranslated - Deploy GH Pages
 
 env:
-    DEPLOYMENT_LANGUAGE: ${{ vars.DEPLOYMENT_LANGUAGE }}
+  DEPLOYMENT_LANGUAGE: ${{ vars.DEPLOYMENT_LANGUAGE }}
+  DEPLOYED_SHA: ${{vars.DEPLOYED_SHA}}
 
 on:
   workflow_dispatch:
@@ -20,9 +21,9 @@ permissions:
 
 jobs:
   build:
+    # Only run if not the backup repository
+    if: ${{ ! contains(github.repository, 'backup')}}
     runs-on: ubuntu-latest
-    # environment:
-    #    name: github-pages
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
@@ -42,7 +43,7 @@ jobs:
 
       - uses: actions/checkout@main
         with:
-          repository: 5etoolstranslated/5etoolstranslated.github.io
+          repository: 5etools-translator-mirror-3/5etools-translator
           ref: "translations"
           fetch-depth: 1
           # Currently a "bug" we will do it manually
@@ -62,9 +63,10 @@ jobs:
         run: |
           mv data data.en
           mv data.${{ env.DEPLOYMENT_LANGUAGE }} data
-          sed -i -e "s/defaultContentLanguage: 'en'/defaultContentLanguage: '${{env.DEPLOYMENT_LANGUAGE}}'/g" js/utils.js
-          sed -i -e "s/{ name: 'English',  baseDir: 'data\//{ name: 'English',  baseDir: 'data.en\//g" js/utils.js
-          sed -i -e "s/data.${{env.DEPLOYMENT_LANGUAGE}}/data/g" js/utils.js
+
+      # TODO: The deployment is close to reaching the limit
+      # We can use this to not include the image but fetch them from repo but this does not work with plutonium
+      # Uncomment when the main 5etools site reaches the same limit and plutonium is updated
 
       # - name: Point to images from repo
       #   continue-on-error: false
@@ -98,12 +100,24 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    # environment:
-    #   # name: github-pages
-    #   url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@master
         with:
           timeout: 600000 # Max 10 min
+  set_deployed_sha:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - id: set_sha
+        run: |
+          ACCESS_TOKEN=${{ secrets.ACTIONS_TOKEN }}
+          REPO_API_URL="https://api.github.com/repos/${{ github.repository }}"
+          VARIABLE_NAME="DEPLOYED_SHA"
+          VARIABLE_VALUE=$(git tag -l --sort=-committerdate | head -n1)
+
+          curl -X PUT -H "Authorization: token $ACCESS_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "$REPO_API_URL/actions/variable/$VARIABLE_NAME" \
+            -d '{"value": "$VARIABLE_VALUE"}'

@@ -1,3 +1,4 @@
+# Use to sync the template from the backup in case it's modified
 name: 5etranslated - Fork Sync
 
 on:
@@ -11,18 +12,19 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    # Run only if it's not the main repository
-    if: ${{ github.repository != '5etoolstranslated/deploy_template' }}
+    # Run only if it's not the template repository itself
+    if: ${{ ! contains(github.repository, 'template')}}
     steps:
       - uses: actions/checkout@main
         with:
           ref: "main"
-          token: ${{ secrets.PERSONAL_TOKEN }} # Must be added to the repo in Settings > Secrets and variables > Actions
+          # Must be added to the repo in Settings > Secrets and variables > Actions
+          token: ${{ secrets.ACTIONS_TOKEN }}
 
       - name: Merge latest deploy_template main repo
         run: |
           git checkout main
-          git remote add upstream https://github.com/5etoolstranslated/deploy_template
+          git remote add upstream https://github.com/5etools-translated-mirror-2/deployer_template
           git fetch upstream
           git reset --hard upstream/main
           git config user.name "GH Actions Automation"
