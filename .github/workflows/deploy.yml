@@ -24,6 +24,9 @@ jobs:
     # Only run if not the backup repository
     if: ${{ ! contains(github.repository, 'backup')}}
     runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.setup-evars.outputs.SHORT_SHA }}
+      should_deploy: ${{steps.exit-if-no-deploy.outputs.SHOULD_DEPLOY}}
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
@@ -42,8 +45,23 @@ jobs:
           #   fetch-tags: true
 
       - name: configure some evars
+        id: "setup-evars"
         run: |
+          echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_OUTPUT
           echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_ENV
+
+      - name: Exit if last deployed SHA is the current one
+        id: "exit-if-no-deploy"
+        run: |
+          echo "Deployed sha: $DEPLOYED_SHA"
+          echo "Current sha: $SHORT_SHA"
+          if [ "$DEPLOYED_SHA" = "$SHORT_SHA" ]; then
+            echo "Exiting the job because DEPLOYED_SHA is equal to SHORT_SHA"
+            echo "SHOULD_DEPLOY=false" >> $GITHUB_OUTPUT
+            exit 0 # You can use any non-zero exit code to indicate failure
+          else
+            echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: cache buster
         run: |
@@ -68,6 +86,7 @@ jobs:
       #   run: |
       #      sed -i -e 's/globalThis.DEPLOYED_IMG_ROOT = undefined/globalThis.DEPLOYED_IMG_ROOT = "https:\/\/raw.githubusercontent.com\/5etools-mirror-1\/5etools-mirror-1.github.io\/master\/"/' js/utils.js
       #      rm -rf img
+
       - name: Clean unnecessary files for pages deploy
         run: |
           rm -rf translation
@@ -75,7 +94,7 @@ jobs:
           rm -rf docker
           rm -rf .git
           ls -lah
-  
+
       - name: Build Service Worker
         run: |
           npm i
@@ -83,8 +102,8 @@ jobs:
           sed -i 's/sw.js//g' .gitignore
           sed -i 's/sw-injector.js//g' .gitignore
 
-      -  name: Cleanup
-         run: |
+      - name: Cleanup
+        run: |
           rm -rf node_modules node .gitmodules *.md *.zip scss spellcheck homebrew prerelease
           ls -lah
 
@@ -98,6 +117,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    if: needs.build.outputs.should_deploy == 'true'
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
@@ -106,15 +126,17 @@ jobs:
           timeout: 600000 # Max 10 min
   set_deployed_sha:
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: [deploy, build]
     steps:
       - id: set_sha
         run: |
           ACCESS_TOKEN=${{ secrets.ACTIONS_TOKEN }}
           REPO_API_URL="https://api.github.com/repos/${{ github.repository }}"
           VARIABLE_NAME="DEPLOYED_SHA"
+          VARIABLE_VALUE=${{needs.build.outputs.short_sha}}
+          DATA="{\"value\": \"$VARIABLE_VALUE\"}"
 
-          curl -X PUT -H "Authorization: token $ACCESS_TOKEN" \
+          curl -X PATCH -H "Authorization: token $ACCESS_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "$REPO_API_URL/actions/variable/$VARIABLE_NAME" \
-            -d '{"value": "$SHORT_SHA"}'
+            "$REPO_API_URL/actions/variables/$VARIABLE_NAME" \
+            -d "$DATA"
