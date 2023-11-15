@@ -52,6 +52,8 @@ jobs:
 
       - name: Exit if last deployed SHA is the current one
         id: "exit-if-no-deploy"
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "Deployed sha: $DEPLOYED_SHA"
           echo "Current sha: $SHORT_SHA"
