@@ -41,6 +41,10 @@ jobs:
           # https://github.com/actions/checkout/issues/1471
           #   fetch-tags: true
 
+      - name: configure some evars
+        run: |
+          echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_ENV
+
       - name: cache buster
         run: |
           cd $GITHUB_WORKSPACE
@@ -109,9 +113,8 @@ jobs:
           ACCESS_TOKEN=${{ secrets.ACTIONS_TOKEN }}
           REPO_API_URL="https://api.github.com/repos/${{ github.repository }}"
           VARIABLE_NAME="DEPLOYED_SHA"
-          VARIABLE_VALUE=$(git tag -l --sort=-committerdate | head -n1)
 
           curl -X PUT -H "Authorization: token $ACCESS_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "$REPO_API_URL/actions/variable/$VARIABLE_NAME" \
-            -d '{"value": "$VARIABLE_VALUE"}'
+            -d '{"value": "$SHORT_SHA"}'
