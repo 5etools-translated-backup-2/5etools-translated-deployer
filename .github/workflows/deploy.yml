@@ -60,7 +60,7 @@ jobs:
           if [ "$DEPLOYED_SHA" = "$SHORT_SHA" ]; then
             # https://stackoverflow.com/a/75809743
             gh run cancel ${{ github.run_id }}
-            gh run watch ${{ github.run_id }}
+            sleep 60s
           fi
 
       - name: cache buster
