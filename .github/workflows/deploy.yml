@@ -64,7 +64,14 @@ jobs:
       #   run: |
       #      sed -i -e 's/globalThis.DEPLOYED_IMG_ROOT = undefined/globalThis.DEPLOYED_IMG_ROOT = "https:\/\/raw.githubusercontent.com\/5etools-mirror-1\/5etools-mirror-1.github.io\/master\/"/' js/utils.js
       #      rm -rf img
-
+      - name: Clean unnecessary files for pages deploy
+        run: |
+          rm -rf translation
+          rm -rf data.*
+          rm -rf docker
+          rm -rf .git
+          ls -lah
+  
       - name: Build Service Worker
         run: |
           npm i
@@ -72,14 +79,10 @@ jobs:
           sed -i 's/sw.js//g' .gitignore
           sed -i 's/sw-injector.js//g' .gitignore
 
-      - name: Clean unnecessary files for pages deploy
-        run: |
-          rm -rf translation
-          rm -rf node_modules
-          rm -rf data.*
-          rm -rf docker
-          rm -rf .git
-          rm SVGs.zip
+      -  name: Cleanup
+         run: |
+          rm -rf node_modules node .gitmodules *.md *.zip scss spellcheck homebrew prerelease
+          ls -lah
 
       - name: Setup Pages
         uses: actions/configure-pages@master
