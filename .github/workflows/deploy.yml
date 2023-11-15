@@ -18,6 +18,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  actions: write
 
 jobs:
   build:
@@ -26,7 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       short_sha: ${{ steps.setup-evars.outputs.SHORT_SHA }}
-      should_deploy: ${{steps.exit-if-no-deploy.outputs.SHOULD_DEPLOY}}
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
@@ -56,11 +56,9 @@ jobs:
           echo "Deployed sha: $DEPLOYED_SHA"
           echo "Current sha: $SHORT_SHA"
           if [ "$DEPLOYED_SHA" = "$SHORT_SHA" ]; then
-            echo "Exiting the job because DEPLOYED_SHA is equal to SHORT_SHA"
-            echo "SHOULD_DEPLOY=false" >> $GITHUB_OUTPUT
-            exit 0 # You can use any non-zero exit code to indicate failure
-          else
-            echo "SHOULD_DEPLOY=true" >> $GITHUB_OUTPUT
+            # https://stackoverflow.com/a/75809743
+            gh run cancel ${{ github.run_id }}
+            gh run watch ${{ github.run_id }}
           fi
 
       - name: cache buster
@@ -117,7 +115,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    if: needs.build.outputs.should_deploy == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -129,7 +126,7 @@ jobs:
           timeout: 600000 # Max 10 min
   set_deployed_sha:
     runs-on: ubuntu-latest
-    needs: [deploy, build]
+    needs: deploy
     steps:
       - id: set_sha
         run: |
